@@ -36,7 +36,7 @@ arduino/                                          ← Full TFLite Micro "micro_s
 
 > The `arduino_*` and `sparkfun_edge_*` source files are both present because this is the standard TFLite Micro multi-platform example layout — each pair implements the same header for a different board, guarded by platform macros. For the Nano 33 BLE Sense, only the `arduino_*.cpp` files are active; the `sparkfun_edge_*.cpp` files compile to no-ops and can be left in place or removed.
 
-**Note on the two Colab notebooks:** `TinyML_Lab5_Google_Colab.ipynb` and `_v2.ipynb` are not identical — they differ in run/output state (1000+ lines of diff). Both are kept since it wasn't clear which run represents the final submitted results; open both if you need to compare.
+**Note on the two Colab notebooks:** `TinyML_Lab5_Google_Colab.ipynb` and `_v2.ipynb` are not identical -- they differ in run/output state (1000+ lines of diff). Both are kept since it wasn't clear which run represents the final submitted results; open both if you need to compare. Also worth knowing: despite the filename, the saved outputs in these notebooks were executed on a local machine, not in an actual Colab session (the embedded execution metadata doesn't match a Colab environment) -- functionally the results are the same either way, but treat the "Colab" label as historical/nominal rather than a guarantee of where it was run.
 
 ---
 
@@ -68,3 +68,9 @@ The local-env notebook installs its own small audio dependencies on top of the s
 ## Authors
 
 Sparsh Dadhich — University of Washington, ECE / Neuroscience
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE). This covers the author's own code, notebooks, and documentation in this repo. The `arduino/` sketch is adapted from TensorFlow's Apache-2.0-licensed micro_speech example; TensorFlow/TFLite Micro itself remains under its own Apache 2.0 license.
