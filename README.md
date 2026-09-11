@@ -1,76 +1,35 @@
-# Keyword Spotting (micro_speech) — Arduino Nano 33 BLE Sense
+# Keyword spotting with `micro_speech`
 
-**EE 446: Tiny Machine Learning for Ultra Low-Power Edge Computing | University of Washington, Spring 2026**
-
-TensorFlow Lite Micro's classic keyword-spotting pipeline — detecting the words "yes" and "no" from streaming microphone audio — explored offline in Python and deployed to an Arduino Nano 33 BLE Sense.
-
----
+EE 446 lab materials for keyword spotting on an Arduino target. The repository contains three model-preparation notebooks, an Arduino sketch, and the submitted lab PDF.
 
 ## What it does
 
-1. **Audio representation** — explores time-domain waveforms, FFTs, spectrograms, and MFCC-style Mel features for short speech clips
-2. **Model conversion** — takes a pretrained keyword-spotting model, converts it to TensorFlow Lite, and applies full integer post-training quantization
-3. **On-device inference** — the quantized model runs continuously on the Arduino, listening to the PDM microphone and printing "yes" / "no" / "unknown" / "silence" detections over Serial
+`arduino/micro_speech.ino` runs an embedded TensorFlow Lite model (`g_model`, 19,104 bytes) with TensorFlow Lite Micro. Its model input is an INT8 buffer of 1,960 micro-feature values: 49 slices of 40 features. The configured output labels are `silence`, `unknown`, `yes`, and `no`.
 
----
+Audio features are generated from 16 kHz input using 30 ms windows at a 20 ms stride. The command recognizer averages results over a 1,000 ms window, uses a threshold of 200, requires at least three results, and suppresses repeated detections for 1,500 ms.
 
-## Repository contents
+For a new `yes`, `no`, or `unknown` detection, the Arduino responder logs `Heard ...` through the TensorFlow Lite error reporter and lights the board LEDs: green for `yes`, red for `no`, and blue for `unknown`.
 
-```
-Lab5_EE446.pdf                                    ← Written report
-notebooks/
-  TinyML_Lab5_Google_Colab.ipynb                  ← Colab version (audio recording via browser mic)
-  TinyML_Lab5_Google_Colab_v2.ipynb               ← Second Colab run/pass (kept as a separate artifact — see note below)
-  TinyML_Lab5_Local_Env.ipynb                     ← Local Jupyter version (records from laptop mic, no Colab-specific commands)
-arduino/                                          ← Full TFLite Micro "micro_speech" sketch
-  micro_speech.ino                                ← Main sketch
-  main_functions.h                                ← Shared setup/loop logic
-  audio_provider.h + arduino_audio_provider.cpp    ← Microphone capture (Arduino Nano 33 BLE Sense target)
-  audio_provider.h + sparkfun_edge_audio_provider.cpp   ← Microphone capture (SparkFun Edge target — inactive on Arduino builds)
-  command_responder.h + arduino_command_responder.cpp   ← Output handling (Arduino target)
-  command_responder.h + sparkfun_edge_command_responder.cpp  ← Output handling (SparkFun Edge target — inactive on Arduino builds)
-  feature_provider.cpp / .h                        ← Converts raw audio into model input features
-  recognize_commands.cpp / .h                      ← Smooths per-frame model output into stable command detections
-  micro_features_*.cpp / .h                        ← Feature generator, model settings, embedded model weights, and reference "yes"/"silence" feature data
-```
+## Model
 
-> The `arduino_*` and `sparkfun_edge_*` source files are both present because this is the standard TFLite Micro multi-platform example layout — each pair implements the same header for a different board, guarded by platform macros. For the Nano 33 BLE Sense, only the `arduino_*.cpp` files are active; the `sparkfun_edge_*.cpp` files compile to no-ops and can be left in place or removed.
+The local notebook source sets `WANTED_WORDS = "yes,no"`, `MODEL_ARCHITECTURE = "tiny_conv"`, and `PREPROCESS = "micro"`. It downloads a pretrained `speech_micro_train_2020_05_10` checkpoint, converts a SavedModel to TensorFlow Lite with INT8 input and output, and exports the quantized model as a C/C++ byte array. The Arduino sketch accepts an INT8 model and registers DepthwiseConv2D, Conv2D, FullyConnected, Reshape, and Softmax operators.
 
-**Note on the two Colab notebooks:** `TinyML_Lab5_Google_Colab.ipynb` and `_v2.ipynb` are not identical -- they differ in run/output state (1000+ lines of diff). Both are kept since it wasn't clear which run represents the final submitted results; open both if you need to compare. Also worth knowing: despite the filename, the saved outputs in these notebooks were executed on a local machine, not in an actual Colab session (the embedded execution metadata doesn't match a Colab environment) -- functionally the results are the same either way, but treat the "Colab" label as historical/nominal rather than a guarantee of where it was run.
+## Hardware and tools
 
----
+- The lab PDF identifies the deployment board as an Arduino Nano 33 BLE; the Arduino audio and responder implementations are compiled only when `ARDUINO_ARDUINO_NANO33BLE` is defined.
+- Audio is captured through `PDM.h`, configured as mono at 16 kHz with gain 20. The checkout does not identify the microphone component or state that the board is a Nano 33 BLE Sense, so this README does not make either claim.
+- The sketch requires an Arduino environment that supplies `TensorFlowLite.h`, the TensorFlow Lite Micro headers used by the sketch, and `PDM.h`. No Arduino library version, board-core version, Arduino CLI configuration, or successful build log is included.
+- The notebooks download their model/data dependencies at runtime. There is no pinned Python environment or requirements file in the checkout.
 
-## Quick start
+## Run the Arduino sketch
 
-### Run the notebook
+This procedure is derived from the source and is not verified by a build artifact in this repository.
 
-```bash
-jupyter notebook notebooks/TinyML_Lab5_Local_Env.ipynb
-```
+1. Use an Arduino setup for the Nano 33 BLE target that provides the headers above.
+2. Open `arduino/micro_speech.ino` with the companion source files in `arduino/`, build it, and upload it to the board.
+3. After the sketch starts, it waits for PDM samples, continuously generates features, and invokes the embedded model when new audio arrives.
+4. Speak `yes` or `no` near the PDM audio input. The responder's LED behavior is defined above. The lab PDF asks for keyword identification to be observed in the Arduino IDE Serial Monitor; the source itself emits the detection through TensorFlow Lite's error reporter rather than calling `Serial` directly.
 
-The local-env notebook installs its own small audio dependencies on top of the standard TinyML environment (TensorFlow, NumPy, SciPy, Matplotlib, Jupyter). Use the Colab notebooks instead if you'd rather run in-browser with no local setup.
+## Credits and license
 
-### Flash the Arduino sketch
-
-1. Install the `Arduino_TensorFlowLite` library via Arduino Library Manager (or the `tflite-micro-arduino-examples` library)
-2. Copy the entire `arduino/` folder contents into a sketch folder (Arduino IDE requires the folder name to match the `.ino` filename — rename the folder to `micro_speech/` if needed)
-3. Open `micro_speech.ino`, select **Arduino Nano 33 BLE Sense** as the board, upload
-4. Open Serial Monitor — say "yes" or "no" near the board's microphone to see detections
-
----
-
-## Hardware
-
-- **Arduino Nano 33 BLE Sense** (Nordic nRF52840, onboard PDM microphone)
-
----
-
-## Authors
-
-Sparsh Dadhich — University of Washington, ECE / Neuroscience
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE). This covers the author's own code, notebooks, and documentation in this repo. The `arduino/` sketch is adapted from TensorFlow's Apache-2.0-licensed micro_speech example; TensorFlow/TFLite Micro itself remains under its own Apache 2.0 license.
+The root [LICENSE](LICENSE) is MIT and names Sparsh Dadhich (2026). The Arduino source files carry TensorFlow Authors Apache-2.0 headers. The local notebook identifies the model workflow as derived from TensorFlow Lite Micro's `micro_speech` example (v2.4.1).
